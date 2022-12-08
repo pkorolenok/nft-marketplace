@@ -12,11 +12,11 @@ contract NFTStaking is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
     IERC20Mintable public immutable rewardsToken;
-    //IERC721 public immutable nftCollection;
+    IERC721 public immutable nftCollection;
 
     // Sets NFT collection and Rewards token addresses
-    constructor(/*IERC721 _nftCollection,*/ IERC20Mintable _rewardsToken) {
-        //nftCollection = _nftCollection;
+    constructor(IERC721 _nftCollection, IERC20Mintable _rewardsToken) {
+        nftCollection = _nftCollection;
         rewardsToken = _rewardsToken;
     }
 
@@ -46,12 +46,12 @@ contract NFTStaking is ReentrancyGuard, Ownable {
             rewards = calculateRewards(msg.sender);
         }
 
-       // require(
-         //   nftCollection.ownerOf(_tokenId) == msg.sender,
-         //   "You don't own this token!"
-        //);
+        require(
+            nftCollection.ownerOf(_tokenId) == msg.sender,
+            "You don't own this token!"
+        );
 
-       // nftCollection.transferFrom(msg.sender, address(this), _tokenId);
+        nftCollection.transferFrom(msg.sender, address(this), _tokenId);
 
         stakerAddress[_tokenId] = msg.sender;
 
@@ -93,7 +93,7 @@ contract NFTStaking is ReentrancyGuard, Ownable {
         // set to address(0) to indicate that the token is no longer staked
         stakerAddress[_tokenId] = address(0);
 
-        //nftCollection.transferFrom(address(this), msg.sender, _tokenId);
+        nftCollection.transferFrom(address(this), msg.sender, _tokenId);
         // update staker rewards and last update time
         stakers[msg.sender].unclaimedRewards += rewards;
         stakers[msg.sender].rewardsLastUpdateTime = block.timestamp;
@@ -113,7 +113,7 @@ contract NFTStaking is ReentrancyGuard, Ownable {
             uint256 tokenId = stakers[msg.sender].stakedTokens[i];
             // set to address(0) to indicate that the token is no longer staked
             stakerAddress[tokenId] = address(0);
-           // nftCollection.transferFrom(address(this), msg.sender, tokenId);
+            nftCollection.transferFrom(address(this), msg.sender, tokenId);
         }
         delete stakers[msg.sender].stakedTokens;
 
