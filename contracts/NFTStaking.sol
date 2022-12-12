@@ -62,9 +62,8 @@ contract NFTStaking is ReentrancyGuard, Ownable {
     }
 
     // Withdraws NFT token from the contract, specifically:
-    // - calculate earned so far
+    // - calculate and transfer rewards earned so far to a staker
     // - transfer token back to the owner and reset staker address map
-    // - update staker info (incl. unclaimed rewards)
     function withdraw(uint256 _tokenId) external nonReentrant {
         require(
             stakers[msg.sender].stakedTokens.length > 0,
@@ -75,8 +74,9 @@ contract NFTStaking is ReentrancyGuard, Ownable {
             "You don't own this token!"
         );
 
-        // calculate the rewards before removing the token
-        uint256 rewards = calculateRewards(msg.sender);
+        // calculate and transfer the rewards before removing the token
+        uint256 rewards = calculateRewards(msg.sender) + stakers[msg.sender].unclaimedRewards;
+        transferRewards(msg.sender, rewards);
 
         // remove token id from staked tokens array
         uint256 index = 0;
@@ -94,19 +94,20 @@ contract NFTStaking is ReentrancyGuard, Ownable {
         stakerAddress[_tokenId] = address(0);
 
         nftCollection.transferFrom(address(this), msg.sender, _tokenId);
-        // update staker rewards and last update time
-        stakers[msg.sender].unclaimedRewards += rewards;
-        stakers[msg.sender].rewardsLastUpdateTime = block.timestamp;
     }
 
+    // Withdraws all NFT tokens owned by a staker from the contract, specifically:
+    // - calculate and transfer rewards earned so far to a staker
+    // - transfer all staked tokens back to the owner and reset staker address map
     function withdrawAll() external nonReentrant {
         require(
             stakers[msg.sender].stakedTokens.length > 0,
             "You have no tokens staked"
         );
 
-        // calculate the rewards before removing the tokens
-        uint256 rewards = calculateRewards(msg.sender);
+        // calculate and transfer the rewards before removing the tokens
+        uint256 rewards = calculateRewards(msg.sender) + stakers[msg.sender].unclaimedRewards;
+        transferRewards(msg.sender, rewards);
 
         // remove all tokens from staked tokens array
         for (uint256 i = 0; i < stakers[msg.sender].stakedTokens.length; i++) {
@@ -116,11 +117,6 @@ contract NFTStaking is ReentrancyGuard, Ownable {
             nftCollection.transferFrom(address(this), msg.sender, tokenId);
         }
         delete stakers[msg.sender].stakedTokens;
-
-        
-        // update staker rewards and last update time
-        stakers[msg.sender].unclaimedRewards += rewards;
-        stakers[msg.sender].rewardsLastUpdateTime = block.timestamp;
     }
 
     // Transfer unclaimed rewards to staker address
@@ -128,9 +124,7 @@ contract NFTStaking is ReentrancyGuard, Ownable {
         uint256 rewards = calculateRewards(msg.sender) +
             stakers[msg.sender].unclaimedRewards;
         require(rewards > 0, "You have no rewards to claim");
-        stakers[msg.sender].rewardsLastUpdateTime = block.timestamp;
-        stakers[msg.sender].unclaimedRewards = 0;
-        rewardsToken.mintTo(msg.sender, rewards);
+        transferRewards(msg.sender, rewards);
     }
 
     //////////
@@ -183,5 +177,11 @@ contract NFTStaking is ReentrancyGuard, Ownable {
                 ((block.timestamp - stakers[_staker].rewardsLastUpdateTime) *
                     stakers[_staker].stakedTokens.length)
             ) * rewardsPerDay) / 86400;
+    }
+
+    function transferRewards(address _staker, uint256 rewards) internal {
+        stakers[_staker].rewardsLastUpdateTime = block.timestamp;
+        stakers[_staker].unclaimedRewards = 0;
+        rewardsToken.mintTo(_staker, rewards);
     }
 }
