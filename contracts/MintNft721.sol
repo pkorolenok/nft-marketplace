@@ -3,10 +3,14 @@
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 contract MintNft721 is ERC721, Ownable {
     using Strings for uint256;
+
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
 
     uint public constant MAX_TOKENS = 150;
     uint public constant MAX_MINT_AMOUNT = 5;
@@ -27,17 +31,19 @@ contract MintNft721 is ERC721, Ownable {
         //baseUri = "ipfs://QmRYUNY95wZYLrNCucAzyse54BeUWUByXSC4KNBzTPW1fr"; // -- correct;
     }
 
-    function mint(uint256 _tokenId) public {
+    function mint() public {
         address sender = msg.sender;
 
-        require(!isPaused, "Minting is not started yet");
-        require(mintedPerWallet[sender] < MAX_MINT_AMOUNT, "Err: exceed max mint amount");
-        require(totalSupply + 1 <= MAX_TOKENS, "Exceeds total supply.");
+        require(!isPaused, "Err: Minting is not started yet");
+        require(mintedPerWallet[sender] < MAX_MINT_AMOUNT, "Err: Exceeds max mint amount per wallet.");
+        require(totalSupply + 1 <= MAX_TOKENS, "Err: Exceeds total supply.");
 
         totalSupply += 1;
         mintedPerWallet[sender] += 1;
 
-        _safeMint(sender, _tokenId);
+        _tokenIds.increment();
+        uint256 newItemId = _tokenIds.current();
+        _safeMint(sender, newItemId);
     }
 
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
@@ -54,6 +60,11 @@ contract MintNft721 is ERC721, Ownable {
     // Owner-only functions
     function setPause(bool _isPaused) external onlyOwner {
         isPaused = _isPaused;
+    }
+
+    // call this function to Start Minting
+    function startSale() external onlyOwner {
+        isPaused = false;
     }
 
     function setIsRevealed(bool _isRevealed) external onlyOwner {
